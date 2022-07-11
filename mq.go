@@ -1,7 +1,7 @@
 package fluffle
 
 import (
-	"github.com/streadway/amqp"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type MQ struct {
@@ -9,7 +9,7 @@ type MQ struct {
 	name            string
 	prefetchCount   int
 	channels        chan *rabbitChannel
-	deliveryChannel chan amqp.Delivery
+	deliveryChannel chan amqp091.Delivery
 }
 
 type IRabbitTrans interface {
@@ -19,7 +19,7 @@ type IRabbitTrans interface {
 }
 
 func (b *MQ) PublishMsg(parentIdempKey, idempotencyKey string, bty []byte) error {
-	return b.publish(bty, amqp.Table{
+	return b.publish(bty, amqp091.Table{
 		commons.IdempotencyKey:       idempotencyKey,
 		commons.ParentIdempotencyKey: parentIdempKey,
 	})
@@ -29,7 +29,7 @@ func (b *MQ) Publish(bty []byte) error {
 	return b.publish(bty, nil)
 }
 
-func (b *MQ) publish(bty []byte, publishingHeader amqp.Table) error {
+func (b *MQ) publish(bty []byte, publishingHeader amqp091.Table) error {
 	ch := getChannel()
 	defer ch.amqpChan.Close()
 
@@ -43,11 +43,11 @@ func (b *MQ) publish(bty []byte, publishingHeader amqp.Table) error {
 		b.name, // routing key
 		false,  // mandatory
 		false,  // immediate
-		amqp.Publishing{
+		amqp091.Publishing{
 			Headers:      publishingHeader,
 			ContentType:  "application/json",
 			Body:         bty,
-			DeliveryMode: amqp.Persistent,
+			DeliveryMode: amqp091.Persistent,
 		})
 	if err != nil {
 		logger.Error("RabbitMQ", err, map[string]interface{}{"message": "Error while sending message"})
@@ -55,7 +55,7 @@ func (b *MQ) publish(bty []byte, publishingHeader amqp.Table) error {
 	return err
 }
 
-func (b MQ) Retry(delivery amqp.Delivery) {
+func (b MQ) Retry(delivery amqp091.Delivery) {
 
 	defer func() {
 		recover()
@@ -69,10 +69,10 @@ func (b MQ) Retry(delivery amqp.Delivery) {
 	}
 }
 
-func (b *MQ) Consume() <-chan amqp.Delivery {
+func (b *MQ) Consume() <-chan amqp091.Delivery {
 	// lazy loading. delivery channel won't be created if there are no consumers
 	if b.deliveryChannel == nil {
-		b.deliveryChannel = make(chan amqp.Delivery)
+		b.deliveryChannel = make(chan amqp091.Delivery)
 	}
 	go subscribe(b.deliveryChannel, b.name, b.prefetchCount, b.QueueProperties)
 	return b.deliveryChannel

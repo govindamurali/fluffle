@@ -2,7 +2,7 @@ package fluffle
 
 import (
 	"fmt"
-	"github.com/streadway/amqp"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type Exchange interface {
@@ -21,7 +21,7 @@ type demuxQueue struct {
 
 type message []byte
 type DeliveryMessage struct {
-	amqp.Delivery
+	amqp091.Delivery
 }
 
 type Config struct {
@@ -90,10 +90,10 @@ loop:
 				q.RoutingKey,
 				false,
 				false,
-				amqp.Publishing{
+				amqp091.Publishing{
 					ContentType:  "application/json",
 					Body:         msg,
-					DeliveryMode: amqp.Persistent,
+					DeliveryMode: amqp091.Persistent,
 				})
 			if err != nil {
 				logger.Error("Error while sending message", err, nil)
@@ -107,10 +107,10 @@ loop:
 				q.RoutingKey,
 				false,
 				false,
-				amqp.Publishing{
+				amqp091.Publishing{
 					ContentType:  "application/json",
 					Body:         msg,
-					DeliveryMode: amqp.Persistent,
+					DeliveryMode: amqp091.Persistent,
 				})
 			if err != nil {
 				logger.Error("Error while retry send message", err, nil)
@@ -125,7 +125,7 @@ loop:
 func (q *demuxQueue) subscribe() {
 	sub := getChannel().amqpChan
 
-	args := amqp.Table{}
+	args := amqp091.Table{}
 
 	err := sub.ExchangeDeclare(
 		q.ExchangeName,

@@ -5,14 +5,14 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/streadway/amqp"
+	"github.com/rabbitmq/amqp091-go"
 )
 
 type IMQ interface {
 	Publish(bty []byte) error
 	PublishMsg(parentIdempKey, idempotencyKey string, bty []byte) error
-	Consume() <-chan amqp.Delivery
-	Retry(delivery amqp.Delivery)
+	Consume() <-chan amqp091.Delivery
+	Retry(delivery amqp091.Delivery)
 }
 
 var rabbitBaseApiUrl = "http://" + config.Host + ":15672" + "/api/queues/%2f/"

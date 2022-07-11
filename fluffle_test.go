@@ -1,7 +1,7 @@
 package fluffle
 
 import (
-	"github.com/streadway/amqp"
+	"github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
@@ -79,7 +79,7 @@ func Test_deadletting_x_death(t *testing.T) {
 	data := msg.Headers["x-death"].([]interface{})
 	assert.Equal(t, 2, len(data))
 
-	row := data[0].(amqp.Table)
+	row := data[0].(amqp091.Table)
 	count, ok := row["count"].(int64)
 	assert.True(t, ok)
 	assert.Equal(t, int64(3), count)

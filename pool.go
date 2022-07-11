@@ -1,7 +1,7 @@
 package fluffle
 
 import (
-	"github.com/streadway/amqp"
+	"github.com/rabbitmq/amqp091-go"
 	"strconv"
 	"sync"
 	"time"
@@ -26,7 +26,7 @@ const (
 )
 
 type connection struct {
-	*amqp.Connection
+	*amqp091.Connection
 	channelCount int
 	isPrimary    bool
 	chanClose    chan bool
@@ -58,10 +58,10 @@ func Start(externalConfig RabbitConfig, externalLogger iLogger) {
 	connectionPool = connections
 }
 
-func startAmqpConnection() (conn *amqp.Connection) {
+func startAmqpConnection() (conn *amqp091.Connection) {
 	var err error
 	for {
-		conn, err = amqp.DialConfig("amqp://"+config.UserName+":"+config.Password+"@"+config.Host+":"+config.Port+"/", amqp.Config{
+		conn, err = amqp091.DialConfig("amqp://"+config.UserName+":"+config.Password+"@"+config.Host+":"+config.Port+"/", amqp091.Config{
 			Heartbeat: 20 * time.Second,
 			Locale:    "en_US",
 		})
@@ -78,7 +78,7 @@ func startAmqpConnection() (conn *amqp.Connection) {
 func initiateConnections(connections chan *connection) {
 	conn := startAmqpConnection()
 	go func() {
-		closeErr := <-conn.NotifyClose(make(chan *amqp.Error))
+		closeErr := <-conn.NotifyClose(make(chan *amqp091.Error))
 		if closeErr != nil {
 			logger.Error("CONNECTION_CLOSE_NOTIf", closeErr, map[string]interface{}{
 				"initiating_server": closeErr.Server,
@@ -105,7 +105,7 @@ func initiateConnections(connections chan *connection) {
 // also handles cases where connection is no longer open
 func getChannel() (rChan *rabbitChannel) {
 	var err error
-	var ch *amqp.Channel
+	var ch *amqp091.Channel
 	var conn *connection
 	for {
 		conn = <-connectionPool
@@ -166,7 +166,7 @@ func (c *connection) listenToChannelClose() {
 }
 
 func (t *rabbitChannel) listenToClose(chanClose chan bool) {
-	closeErr := <-t.amqpChan.NotifyClose(make(chan *amqp.Error))
+	closeErr := <-t.amqpChan.NotifyClose(make(chan *amqp091.Error))
 	if closeErr != nil {
 		logger.Error("CHANNEL_CLOSE_NOTIf", closeErr, map[string]interface{}{
 			"initiating_server": closeErr.Server,

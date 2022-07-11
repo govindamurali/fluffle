@@ -2,13 +2,13 @@ package fluffle
 
 import (
 	"fmt"
-	"github.com/streadway/amqp"
+	"github.com/rabbitmq/amqp091-go"
 	"time"
 )
 
 // this holds a channel in turn, a single transaction
 type rabbitChannel struct {
-	amqpChan    *amqp.Channel
+	amqpChan    *amqp091.Channel
 	isConnected bool
 }
 
@@ -47,7 +47,7 @@ func publish(channels chan *rabbitChannel, qName string, qProperties QueueProper
 }
 
 // subscribe consumes deliveries from an exclusive queue from a fanout exchange and sends to the application specific messages chan.
-func subscribe(messages chan<- amqp.Delivery, qName string, queuePrefetchCount int, qProperties QueueProperties) {
+func subscribe(messages chan<- amqp091.Delivery, qName string, queuePrefetchCount int, qProperties QueueProperties) {
 	for {
 		channel := getChannel().amqpChan
 		if pErr := CreateQueue(channel, qProperties); pErr != nil {
