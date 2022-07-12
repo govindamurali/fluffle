@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-var PrefetchCount int
-
 var connectionPool chan *connection
 
 type RabbitConfig struct {
@@ -16,7 +14,6 @@ type RabbitConfig struct {
 	Password            string
 	Host                string
 	Port                int
-	Prefetch            string
 	ChannelLimitPerConn int
 }
 
