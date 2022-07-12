@@ -1,5 +1,5 @@
 # Fluffle
-RabbitMQ library which abstracts the complications of queue creation, subsciption, channel maintenance and connection management.
+Hassle-free RabbitMQ library which abstracts the complications of queue creation, subsciption, channel maintenance and connection management.
 Opens connections on demand with optimal use of channels with an internal connection pool, limit optionally configurable per channel
 
 
