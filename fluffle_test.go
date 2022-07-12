@@ -1,13 +1,21 @@
 package fluffle
 
 import (
-	"github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
 )
 
 func TestMQ_Publish(t *testing.T) {
+	rConf := RabbitConfig{
+		UserName:            "",
+		Password:            "",
+		Host:                "",
+		Port:                0,
+		Prefetch:            "",
+		ChannelLimitPerConn: 0,
+	}
+	Start(rConf, fakeLogger{})
 	tq := new("publish-test-q")
 	tStr := "thisisatestmessage"
 	for i := 0; i < 10; i++ {
@@ -29,60 +37,33 @@ func TestMQ_Publish(t *testing.T) {
 
 func TestMQ_PublishMsg(t *testing.T) {
 	tq := new("publishmsg-test-q")
-	tStr := "thisisatestmessage"
-	tKey := "thisisatestkey"
-	pKey := "thisisparentKey"
-	err := tq.PublishMsg(pKey, tKey, []byte(tStr))
+	message := "thisisatestmessage"
+	iKey := "thisisatestkey"
+	iVal := "thisisparentKey"
+	err := tq.PublishIdempotent(iKey, iVal, []byte(message))
 	assert.Nil(t, err)
 	var str string
-	var key, pK string
+	var key string
 	msg := <-tq.Consume()
 	str = string(msg.Body)
-	key = msg.Headers[commons.IdempotencyKey].(string)
-	pK = msg.Headers[commons.ParentIdempotencyKey].(string)
+	key = msg.Headers[iKey].(string)
 	msg.Ack(true)
 
-	assert.Equal(t, str, tStr)
-	assert.Equal(t, key, tKey)
-	assert.Equal(t, pK, pKey)
+	assert.Equal(t, str, msg)
+	assert.Equal(t, key, iVal)
 }
 
-func TestDeadLettering(t *testing.T) {
-	tq := new("test-dead")
-	key := "testMessage"
-	body := "this is a message string"
-	err := tq.PublishMsg("", key, []byte(body))
-	assert.Nil(t, err)
-
-	msg := <-tq.Consume()
-	assert.Equal(t, string(msg.Body), body)
-	msg.Nack(false, false)
-
-	msg = <-tq.Consume()
-	assert.Equal(t, string(msg.Body), body)
-	msg.Ack(true)
+type fakeLogger struct {
 }
 
-func Test_deadletting_x_death(t *testing.T) {
-	tq := new("test-x-death")
-	key := "test-x-death"
-	message := "thanos/2"
+func (f fakeLogger) Fatal(message2 string, err error, params map[string]interface{}) {
+}
 
-	tq.PublishMsg("", key, []byte(message))
+func (f fakeLogger) Error(message2 string, err error, params map[string]interface{}) {
+}
 
-	for i := 0; i < 3; i++ {
-		msg := <-tq.Consume()
-		msg.Nack(false, false)
-	}
+func (f fakeLogger) Info(message2 string, params map[string]interface{}) {
+}
 
-	msg := <-tq.Consume()
-	data := msg.Headers["x-death"].([]interface{})
-	assert.Equal(t, 2, len(data))
-
-	row := data[0].(amqp091.Table)
-	count, ok := row["count"].(int64)
-	assert.True(t, ok)
-	assert.Equal(t, int64(3), count)
-
-	msg.Ack(true)
+func (f fakeLogger) Trace(message2 string, params map[string]interface{}) {
 }

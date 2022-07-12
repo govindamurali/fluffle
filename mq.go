@@ -6,8 +6,6 @@ import (
 
 type MQ struct {
 	QueueProperties
-	name            string
-	prefetchCount   int
 	channels        chan *rabbitChannel
 	deliveryChannel chan amqp091.Delivery
 }
@@ -18,10 +16,9 @@ type IRabbitTrans interface {
 	Publish(bty []byte) error
 }
 
-func (b *MQ) PublishMsg(parentIdempKey, idempotencyKey string, bty []byte) error {
+func (b *MQ) PublishIdempotent(idempotencyKey, idempotencyValue string, bty []byte) error {
 	return b.publish(bty, amqp091.Table{
-		commons.IdempotencyKey:       idempotencyKey,
-		commons.ParentIdempotencyKey: parentIdempKey,
+		idempotencyKey: idempotencyValue,
 	})
 }
 
@@ -39,10 +36,10 @@ func (b *MQ) publish(bty []byte, publishingHeader amqp091.Table) error {
 	}
 
 	err := ch.amqpChan.Publish(
-		"",     // exchange
-		b.name, // routing key
-		false,  // mandatory
-		false,  // immediate
+		"",                     // exchange
+		b.QueueProperties.Name, // routing key
+		false,                  // mandatory
+		false,                  // immediate
 		amqp091.Publishing{
 			Headers:      publishingHeader,
 			ContentType:  "application/json",
@@ -74,6 +71,20 @@ func (b *MQ) Consume() <-chan amqp091.Delivery {
 	if b.deliveryChannel == nil {
 		b.deliveryChannel = make(chan amqp091.Delivery)
 	}
-	go subscribe(b.deliveryChannel, b.name, b.prefetchCount, b.QueueProperties)
+	go subscribe(b.deliveryChannel, b.QueueProperties)
 	return b.deliveryChannel
+}
+
+func new(name string, prefetch int) *MQ {
+	if !poolStarted {
+		panic("connections not initiated")
+	}
+
+	b := MQ{channels: make(chan *rabbitChannel)}
+	b.Name = name
+	b.PrefetchCount = prefetch
+
+	go publish(b.channels, b.QueueProperties)
+
+	return &b
 }

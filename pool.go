@@ -1,8 +1,8 @@
 package fluffle
 
 import (
+	"fmt"
 	"github.com/rabbitmq/amqp091-go"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -12,13 +12,12 @@ var PrefetchCount int
 var connectionPool chan *connection
 
 type RabbitConfig struct {
-	UserName                string
-	Password                string
-	Host                    string
-	Port                    string
-	Prefetch                string
-	ChannelLimitPerConn     int
-	IsConnectionPoolEnabled bool
+	UserName            string
+	Password            string
+	Host                string
+	Port                int
+	Prefetch            string
+	ChannelLimitPerConn int
 }
 
 const (
@@ -42,26 +41,17 @@ type iLogger interface {
 
 var logger iLogger
 var config RabbitConfig
+var poolStarted bool
 
-func Start(externalConfig RabbitConfig, externalLogger iLogger) {
-	logger = externalLogger
-	config = externalConfig
-
-	var err error
-	if PrefetchCount, err = strconv.Atoi(config.Prefetch); err != nil {
-		logger.Fatal("rabbitmq init failure. invalid prefetch config", err, nil)
-		panic(err)
-	}
-
-	connections := make(chan *connection)
-	go initiateConnections(connections)
-	connectionPool = connections
+//"amqp://"+config.UserName+":"+config.Password+"@"+config.Host+":"+config.Port+"/"
+func getConnectionString(config RabbitConfig) string {
+	return fmt.Sprintf("amqp://%s:%s@%s:%d/", config.UserName, config.Password, config.Host, config.Port)
 }
 
 func startAmqpConnection() (conn *amqp091.Connection) {
 	var err error
 	for {
-		conn, err = amqp091.DialConfig("amqp://"+config.UserName+":"+config.Password+"@"+config.Host+":"+config.Port+"/", amqp091.Config{
+		conn, err = amqp091.DialConfig(getConnectionString(config), amqp091.Config{
 			Heartbeat: 20 * time.Second,
 			Locale:    "en_US",
 		})
