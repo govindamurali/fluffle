@@ -62,7 +62,7 @@ func startAmqpConnection() (conn *amqp091.Connection) {
 	return conn
 }
 
-func initiateConnections(connections chan *connection) {
+func newConnection(connectionsChan chan *connection) {
 	conn := startAmqpConnection()
 	go func() {
 		closeErr := <-conn.NotifyClose(make(chan *amqp091.Error))
@@ -73,7 +73,7 @@ func initiateConnections(connections chan *connection) {
 			})
 
 		}
-		initiateConnections(connections)
+		newConnection(connectionsChan)
 	}()
 	go func() {
 		conn := &connection{
@@ -84,7 +84,7 @@ func initiateConnections(connections chan *connection) {
 			syncMutex:    sync.Mutex{},
 		}
 		go conn.listenToChannelClose()
-		connections <- conn
+		connectionsChan <- conn
 	}()
 }
 
@@ -97,23 +97,20 @@ func getChannel() (rChan *rabbitChannel) {
 	for {
 		conn = <-connectionPool
 		conn.syncMutex.Lock()
-		if conn.IsClosed() {
-			if conn.isPrimary {
-				initiateConnections(connectionPool)
+		if conn.IsClosed() { // discard this connection if it's closed
+			if conn.isPrimary { //  if it's the only connection, then start a new one
+				newConnection(connectionPool)
 			}
 			conn.syncMutex.Unlock()
 			continue
 		}
-		if config.ChannelLimitPerConn > 0 && conn.channelCount < config.ChannelLimitPerConn {
+
+		usableConnection := config.ChannelLimitPerConn == 0 || conn.channelCount < config.ChannelLimitPerConn
+
+		if usableConnection {
 			ch, err = conn.Channel()
 			if err != nil {
-				if conn.isPrimary {
-					initiateConnections(connectionPool)
-					conn.isPrimary = false
-				}
-				go func() { connectionPool <- conn }()
-				conn.syncMutex.Unlock()
-				continue
+				usableConnection = false
 			} else {
 				rChan = &rabbitChannel{
 					amqpChan:    ch,
@@ -123,9 +120,10 @@ func getChannel() (rChan *rabbitChannel) {
 				conn.channelCount++
 				conn.syncMutex.Unlock()
 			}
-		} else {
+		}
+		if !usableConnection { // spawn a new connection as the primary connection, push the current one back to pool to be used later and retry the loop
 			if conn.isPrimary {
-				initiateConnections(connectionPool)
+				newConnection(connectionPool)
 				conn.isPrimary = false
 			}
 			go func() { connectionPool <- conn }()
@@ -134,7 +132,7 @@ func getChannel() (rChan *rabbitChannel) {
 		}
 		break
 	}
-	go func() { connectionPool <- conn }()
+	go func() { connectionPool <- conn }() // puts the connection back to pool after use
 	return
 }
 

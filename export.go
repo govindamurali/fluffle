@@ -19,9 +19,9 @@ func Start(externalConfig RabbitConfig, externalLogger iLogger) {
 	logger = externalLogger
 	config = externalConfig
 
-	connections := make(chan *connection)
-	go initiateConnections(connections)
-	connectionPool = connections
+	connectionsChan := make(chan *connection)
+	go newConnection(connectionsChan)
+	connectionPool = connectionsChan
 	poolStarted = true
 }
 
