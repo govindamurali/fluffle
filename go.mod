@@ -3,7 +3,7 @@ module fluffle
 go 1.18
 
 require (
-	github.com/rabbitmq/amqp091-go v1.3.4
+	github.com/rabbitmq/amqp091-go v1.14.0
 	github.com/stretchr/testify v1.8.0
 )
 
